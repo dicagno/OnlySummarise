@@ -48,12 +48,17 @@ export default function App() {
         const formData = new FormData();
         formData.append('audioData', audioBlob, 'audio.webm');
 
-        console.log(process.env.EXPO_PUBLIC_SERVER_URL)
-        // const response = await fetch(process.env.SERVER_URL as string, {
-        //   method: 'POST',
-        //   body: formData,
-        // });
-        // console.log("RESPONSE", response)
+        const response = await fetch(
+          process.env.EXPO_PUBLIC_SERVER_URL as string,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: formData,
+          }
+        );
+        console.log('RESPONSE', response);
         // if (!response.ok) {
         //   console.error('Failed to process audio:', response.statusText);
         //   return;
