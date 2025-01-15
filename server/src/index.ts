@@ -1,9 +1,12 @@
 import { AudioDetails } from '../utils/types'
 
-const corsHeaders = {
-	"Access-Control-Allow-Origin": "*",
-	"Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
-	"Access-Control-Max-Age": "86400",
+const corsifyHeaders(headers, json = true) {
+        const modifiedHeaders = new Headers(headers);
+	modifiedHeaders.set("Access-Control-Allow-Origin", "*"); // Allow all origins
+	modifiedHeaders.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS"); // Allowed methods
+	modifiedHeaders.set("Access-Control-Allow-Headers", "Content-Type, Authorization"); // Allowed headers
+	if(json) modifiedHeaders.set("Content-Type", "application/json");
+	return modifiedHeaders;
 }
 
 export default {
@@ -11,7 +14,8 @@ export default {
 
 		if (request.method === "OPTIONS") {
 			return new Response(null, {
-			  headers: corsHeaders,
+			    status: 204,
+			    headers: corsifyHeaders({}, false),
 			});
 		  }
 		if (request.method === "POST") {
@@ -36,10 +40,7 @@ export default {
 				const summary = summarizationResponse || "Unable to summarize the audio.";
 
 				return new Response(JSON.stringify({ summary }), {
-					headers: {
-					  ...corsHeaders,
-					  "Content-Type": "application/json",
-					},
+					headers: corsifyHeaders(response.headers),
 				  });
 			} catch (error) {
 				return new Response(JSON.stringify({ error: "Failed to process request", details: (error as Error).message }), {
