@@ -11,7 +11,6 @@ export default {
 				const transcriptionResponse = await env.AI.run("@cf/openai/whisper", { audio: audioData });
 				const transcript = (transcriptionResponse as { text: string }).text || "Unable to transcribe audio.";
 
-				// Summarize the transcription.
 				const summarizationPrompt = `
 				Here is a transcription of an audio recording:
 				"${transcript}"
