@@ -1,67 +1,108 @@
-import React, { useState } from "react";
-import { View, TextInput, Button, Text, StyleSheet } from "react-native";
-import axios from "axios";
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, Button } from 'react-native';
+import { Audio } from 'expo-av';
+import { Recording } from 'expo-av/build/Audio';
+
+type RecordingData = {
+  sound: Audio.Sound;
+  duration: string;
+  file: string;
+};
 
 export default function App() {
-  const [bedrooms, setBedrooms] = useState("");
-  const [bathrooms, setBathrooms] = useState("");
-  const [sqft, setSqft] = useState("");
-  const [location, setLocation] = useState("urban");
-  const [predictedPrice, setPredictedPrice] = useState(null);
+  const [recording, setRecording] = useState<Recording | undefined>(undefined);
+  const [recordings, setRecordings] = useState<RecordingData[]>([]);
+  const [summary, setSummary] = useState<string>('');
 
-  const handlePredict = async () => {
+  const startRecording = async (): Promise<void> => {
     try {
-      const response = await axios.post("https://your-worker-name.workers.dev", {
-        bedrooms: Number(bedrooms),
-        bathrooms: Number(bathrooms),
-        sqft: Number(sqft),
-        location,
-      });
-      setPredictedPrice(response.data.predictedPrice);
-    } catch (error) {
-      console.error("Error predicting price:", error);
+      const perm = await Audio.requestPermissionsAsync();
+      if (perm.status === 'granted') {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+        const { recording } = await Audio.Recording.createAsync(
+          (Audio as unknown as any).RECORDING_OPTIONS_PRESET_HIGH_QUALITY
+        );
+        setRecording(recording);
+      }
+    } catch (err) {
+      console.error('Error starting recording:', err);
     }
   };
 
+  const stopRecording = async (): Promise<void> => {
+    if (recording) {
+      setRecording(undefined);
+      try {
+        await recording.stopAndUnloadAsync();
+        const audioUri = recording.getURI();
+
+        if (!audioUri) {
+          console.error('Failed to retrieve audio URI');
+          return;
+        }
+
+        const audioBlob = await fetch(audioUri).then((res) => res.blob());
+        const formData = new FormData();
+        formData.append('audioData', audioBlob, 'audio.webm');
+
+        // Send the audio data to the server
+        const response = await fetch(process.env.SERVER_URL as string, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          console.error('Failed to process audio:', response.statusText);
+          return;
+        }
+
+        const { summary } = await response.json();
+
+        console.log('Summary:', summary);
+
+        setSummary(summary);
+      } catch (err) {
+        console.error('Error stopping and sending recording:', err);
+      }
+    }
+  };
+
+  const getRecordingLines = (): JSX.Element => (
+    <View style={styles.row}>
+      <Text style={styles.fill}>{summary ? summary : ''}</Text>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      <TextInput
-        placeholder="Bedrooms"
-        value={bedrooms}
-        onChangeText={setBedrooms}
-        style={styles.input}
-        keyboardType="numeric"
+      <Button
+        title={recording ? 'Stop' : 'Start'}
+        onPress={recording ? stopRecording : startRecording}
       />
-      <TextInput
-        placeholder="Bathrooms"
-        value={bathrooms}
-        onChangeText={setBathrooms}
-        style={styles.input}
-        keyboardType="numeric"
-      />
-      <TextInput
-        placeholder="Square Feet"
-        value={sqft}
-        onChangeText={setSqft}
-        style={styles.input}
-        keyboardType="numeric"
-      />
-      <Button title="Predict Price" onPress={handlePredict} />
-      {predictedPrice !== null && (
-        <Text style={styles.result}>Predicted Price: ${predictedPrice}</Text>
-      )}
+      {!recording && getRecordingLines()}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 10,
-    marginBottom: 10,
-    borderRadius: 5,
+  container: {
+    flex: 2,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  result: { marginTop: 20, fontSize: 18, fontWeight: "bold" },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+    marginRight: 40,
+  },
+  fill: {
+    flex: 1,
+    margin: 15,
+  },
 });

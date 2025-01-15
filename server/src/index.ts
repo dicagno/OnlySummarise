@@ -24,7 +24,7 @@ export default {
 				})
 				const summary = summarizationResponse || "Unable to summarize the audio.";
 
-				return new Response(JSON.stringify({ transcript, summary }), {
+				return new Response(JSON.stringify({ summary }), {
 					headers: { "Content-Type": "application/json" },
 				});
 			} catch (error) {
